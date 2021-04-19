@@ -1,0 +1,55 @@
+version: '3.8'
+
+# Networks
+networks:
+    winter-cms-internal-network:
+        driver: bridge
+
+# Volumes
+volumes:
+    mysqldata:
+
+# Services
+services:
+    nginx:
+        image: nginx:1.19
+        container_name: winter-cms-nginx
+        ports:
+            - 80:80
+        networks:
+            - winter-cms-internal-network
+        volumes:
+            - ./:/var/www/html
+            - ./.docker/nginx/conf.d:/etc/nginx/conf.d
+        depends_on:
+            - php
+
+    php:
+        build: ./.docker/php
+        container_name: winter-cms-php
+        working_dir: /var/www/html
+        networks:
+            - winter-cms-internal-network
+        volumes:
+            - ./:/var/www/html
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+    mysql:
+        image: mysql:8
+        container_name: winter-cms-mysql
+        networks:
+            - winter-cms-internal-network
+        environment:
+            MYSQL_ROOT_PASSWORD: uf19dj92
+            MYSQL_DATABASE: winter-cms
+        volumes:
+            - ./.docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+            - mysqldata:/var/lib/mysql
+        ports:
+            - "3306:3306"
+        healthcheck:
+            test: mysqladmin ping -h 127.0.0.1 -u root --password=$$MYSQL_ROOT_PASSWORD
+            interval: 5s
+            retries: 10
